@@ -76,6 +76,34 @@ export default function SettingAction() {
                 }}
               />
             </SettingItem>
+            <SettingItem icon="i-carbon:bare-metal-server" label="Custom Provider Base URL">
+              <input
+                type="text"
+                value={store.globalSettings.customProviderApiBaseUrl}
+                class="input-box"
+                onInput={e => {
+                  setStore(
+                    "globalSettings",
+                    "customProviderApiBaseUrl",
+                    (e.target as HTMLInputElement).value
+                  )
+                }}
+              />
+            </SettingItem>
+            <SettingItem icon="i-carbon:api" label="Custom Provider API Key">
+              <input
+                type="password"
+                value={store.globalSettings.customProviderApiKey}
+                class="input-box"
+                onInput={e => {
+                  setStore(
+                    "globalSettings",
+                    "customProviderApiKey",
+                    (e.target as HTMLInputElement).value
+                  )
+                }}
+              />
+            </SettingItem>
             <SettingItem icon="i-carbon:api" label="OpenAI Key">
               <input
                 type="password"
@@ -132,13 +160,27 @@ export default function SettingAction() {
             >
               <Selector
                 class="max-w-150px"
-                value={store.sessionSettings.model}
+                value={
+                  store.sessionSettings.model === "gpt-3.5" ||
+                  store.sessionSettings.model === "gpt-4"
+                    ? store.sessionSettings.model
+                    : "custom"
+                }
                 onChange={e => {
-                  setStore(
-                    "sessionSettings",
-                    "model",
-                    (e.target as HTMLSelectElement).value as SimpleModel
-                  )
+                  const selectedValue = (e.target as HTMLSelectElement).value
+                  if (selectedValue === "custom") {
+                    setStore(
+                      "sessionSettings",
+                      "model",
+                      "" // Set to empty or a default custom model name to prompt input
+                    )
+                  } else {
+                    setStore(
+                      "sessionSettings",
+                      "model",
+                      selectedValue as SimpleModel
+                    )
+                  }
                 }}
                 options={[
                   {
@@ -148,10 +190,36 @@ export default function SettingAction() {
                   {
                     value: "gpt-4",
                     label: "gpt-4(auto)"
+                  },
+                  {
+                    value: "custom",
+                    label: "Custom"
                   }
                 ]}
               />
             </SettingItem>
+            <Show
+              when={
+                store.sessionSettings.model !== "gpt-3.5" &&
+                store.sessionSettings.model !== "gpt-4"
+              }
+            >
+              <SettingItem icon="i-carbon:model-alt" label="Custom Model Name">
+                <input
+                  type="text"
+                  value={store.sessionSettings.model}
+                  class="input-box"
+                  placeholder="Enter custom model name"
+                  onInput={e => {
+                    setStore(
+                      "sessionSettings",
+                      "model",
+                      (e.target as HTMLInputElement).value
+                    )
+                  }}
+                />
+              </SettingItem>
+            </Show>
             <SettingItem icon="i-carbon:data-enrichment" label="思维发散程度">
               <div class="flex items-center justify-between w-150px">
                 <input
