@@ -35,13 +35,18 @@ export const config = {
 }
 
 export const localKey = process.env.OPENAI_API_KEY || ""
+export const customProviderApiKey = process.env.CUSTOM_PROVIDER_API_KEY || ""
 
-export const baseURL =
-  process.env.NO_GFW !== "false"
-    ? defaultEnv.OPENAI_API_BASE_URL
-    : (
-        process.env.OPENAI_API_BASE_URL || defaultEnv.OPENAI_API_BASE_URL
-      ).replace(/^https?:\/\//, "")
+const openAIBaseURL = (
+  process.env.OPENAI_API_BASE_URL || defaultEnv.OPENAI_API_BASE_URL
+).replace(/^https?:\/\//, "")
+
+const customProviderBaseURL = (
+  process.env.CUSTOM_PROVIDER_API_BASE_URL || ""
+).replace(/^https?:\/\//, "")
+
+// const baseURL is no longer needed as targetBaseURL is determined dynamically.
+// The NO_GFW logic is handled during targetBaseURL selection for OpenAI models.
 
 // + 作用是将字符串转换为数字
 const timeout = isNaN(+process.env.TIMEOUT!)
@@ -86,19 +91,57 @@ export async function POST({ request }: APIEvent) {
       }
     }
 
-    const apiKey = randomKey(splitKeys(key))
+    let targetBaseURL = "";
+    let targetApiKey = "";
 
-    if (!apiKey) throw new Error("没有填写 OpenAI API key，或者 key 填写错误。")
+    if (model.startsWith("gpt-3.5") || model.startsWith("gpt-4")) {
+      targetBaseURL = process.env.NO_GFW !== "false"
+        ? defaultEnv.OPENAI_API_BASE_URL.replace(/^https?:\/\//, "")
+        : openAIBaseURL;
+      targetApiKey = randomKey(splitKeys(key));
+      if (!targetApiKey && !localKey) { // if client key is empty and server localKey is also empty
+        throw new Error("没有填写 OpenAI API key，或者 key 填写错误。");
+      }
+      if (!targetApiKey && localKey) { // if client key is empty, use server localKey
+        targetApiKey = localKey;
+      }
+    } else {
+      // Custom model
+      if (!customProviderBaseURL) {
+        throw new Error(
+          "Custom provider API base URL (CUSTOM_PROVIDER_API_BASE_URL) is not configured on the server."
+        );
+      }
+      targetBaseURL = customProviderBaseURL;
+      targetApiKey = customProviderApiKey; // Use server-defined key for custom provider
+      // We can allow empty customProviderApiKey if the provider does not require one.
+      // For now, let's assume it might be required, but don't throw if it's empty,
+      // as the provider might authenticate in other ways or be an open service.
+      // The actual API call will fail if the key is required and not provided.
+    }
+    
+    if (!targetApiKey && (model.startsWith("gpt-3.5") || model.startsWith("gpt-4"))) {
+      // This case should ideally be caught by the OpenAI specific check above,
+      // but as a safeguard for OpenAI models if somehow randomKey returns empty and localKey was also empty.
+      throw new Error("OpenAI API key is missing.");
+    }
+    // For custom models, targetApiKey can be empty if CUSTOM_PROVIDER_API_KEY is not set.
+    // The request will proceed, and the custom provider will decide if it's acceptable.
 
     const encoder = new TextEncoder()
     const decoder = new TextDecoder()
 
+    const fetchUrl = `https://${targetBaseURL}/v1/chat/completions`;
+    // Ensure custom providers expecting non-OpenAI paths can be handled if targetBaseURL includes the full path.
+    // For now, assuming /v1/chat/completions is standard.
+    // A more robust solution might involve having CUSTOM_PROVIDER_API_ENDPOINT_PATH in env.
+
     const rawRes = await fetchWithTimeout(
-      `https://${baseURL}/v1/chat/completions`,
+      fetchUrl,
       {
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${apiKey}`
+          Authorization: `Bearer ${targetApiKey}`
         },
         timeout,
         method: "POST",

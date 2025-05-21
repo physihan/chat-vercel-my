@@ -135,6 +135,55 @@ https://user-images.githubusercontent.com/48356807/232432194-46ba797f-ad9d-476a-
 | `SEND_KEY`                | 使用 [Server 酱](https://sct.ftqq.com/sendkey) 推送帐号余额以及可用状态到微信，如果需要自行获取。推送时间为早上 8 点和晚上 8 点，在 vercel.json 文件中修改。如果 key 太多，超过 20 个，有可能失败。 | 无                                                                                               |
 | `SEND_CHANNEL`            | [Server 酱](https://sct.ftqq.com/sendkey) 的推送通道，默认微信服务号。                                                                                                                              | 9                                                                                                |
 
+### Custom AI Provider Configuration
+
+This feature allows you to connect ChatGPT-Vercel to alternative AI providers that are compatible with the OpenAI API structure. This is useful if you have access to other large language models or specialized services.
+
+**1. Server-Side Configuration (Required)**
+
+To use a custom AI provider, you **must** configure the following environment variables on your server (e.g., in your `.env` file or through your hosting provider's environment variable settings):
+
+*   `CUSTOM_PROVIDER_API_BASE_URL`
+    *   **Purpose**: This is the base URL for the custom AI provider's API endpoint. It should typically include the path up to (but not including) `/chat/completions` or similar, if the provider follows OpenAI's path structure.
+    *   **Example**: `https://api.example-ai.com/v1` or `my-custom-provider.com/api/textgen/v1`
+*   `CUSTOM_PROVIDER_API_KEY`
+    *   **Purpose**: This is the API key required to authenticate with your custom AI provider.
+    *   **Example**: `sk-mycustomkey12345`
+
+**Important**: The application will use these server-side environment variables to make requests to the custom provider.
+
+**2. Client-Side UI Configuration**
+
+After the server is configured, you need to specify which model to use in the application's UI:
+
+*   **Global Settings (UI)**:
+    *   In the UI, under "Global Settings" (click the cog icon), you will find fields for "Custom Provider Base URL" and "Custom Provider API Key".
+    *   **Current Behavior**: Please note that these UI fields currently **do not** override the server-set `CUSTOM_PROVIDER_API_BASE_URL` and `CUSTOM_PROVIDER_API_KEY` environment variables when connecting to a custom provider. The server's environment variables are always used for the actual connection. These UI fields are available for user reference or potential future features.
+
+*   **Session Settings (UI)**:
+    *   To use a custom model for a specific chat session:
+        1.  Open "Session Settings" (click the services icon next to the cog).
+        2.  In the "OpenAI 模型" (Model) dropdown, select **"Custom"**.
+        3.  A new input field labeled **"Custom Model Name"** will appear.
+        4.  In this field, enter the exact model name string that your custom AI provider expects (e.g., "custom-llama-7b-instruct", "example-ai/model-x-v2").
+
+**3. How It Works - Example**
+
+Let's say your server is configured with:
+*   `CUSTOM_PROVIDER_API_BASE_URL="https://api.customai.net/v1"`
+*   `CUSTOM_PROVIDER_API_KEY="abcdef12345"`
+
+And in the ChatGPT-Vercel UI, for a particular session, you:
+1.  Select "Custom" as the model.
+2.  Enter "my-amazing-llm-v3" in the "Custom Model Name" field.
+
+When you send a message in that session:
+*   The application will make an API request to `https://api.customai.net/v1/chat/completions`.
+*   The request will use the model `"my-amazing-llm-v3"`.
+*   The `Authorization` header will use `Bearer abcdef12345`.
+
+---
+
 有两种设置方式
 
 1. 将 `.env.example` 文件修改为 `.env`，在 `.env` 中设置。

@@ -8,13 +8,21 @@ import type { Model, Option, SimpleModel } from "~/types"
 import { countTokensInWorker } from "~/wokers"
 import { throttle } from "@solid-primitives/scheduled"
 
-let globalSettings = { ...defaultEnv.CLIENT_GLOBAL_SETTINGS }
+let globalSettings = {
+  ...defaultEnv.CLIENT_GLOBAL_SETTINGS,
+  customProviderApiBaseUrl: "",
+  customProviderApiKey: ""
+}
 let _ = import.meta.env.CLIENT_GLOBAL_SETTINGS
 if (_) {
   try {
+    const clientGlobalSettings = JSON.parse(_)
     globalSettings = {
       ...globalSettings,
-      ...JSON.parse(_)
+      ...clientGlobalSettings,
+      // Ensure new fields are included even if not in JSON
+      customProviderApiBaseUrl: clientGlobalSettings.customProviderApiBaseUrl || "",
+      customProviderApiKey: clientGlobalSettings.customProviderApiKey || ""
     }
   } catch (e) {
     console.error("Error parsing CLIENT_GLOBAL_SETTINGS:", e)
@@ -174,22 +182,28 @@ function Store() {
     throttleCountCurrentAssistantMessage(store.currentAssistantMessage)
   })
 
-  const remainingToken = createMemo(
-    () =>
-      (store.globalSettings.APIKey
-        ? maxInputTokens[store.sessionSettings.model]
-        : defaultEnv.CLIENT_MAX_INPUT_TOKENS[store.sessionSettings.model]) -
-      store.contextToken -
-      store.inputContentToken
-  )
+  const remainingToken = createMemo(() => {
+    const currentModelName = store.sessionSettings.model
+    const tokensConfig = store.globalSettings.APIKey
+      ? maxInputTokens
+      : defaultEnv.CLIENT_MAX_INPUT_TOKENS
+    const modelMaxTokens = tokensConfig[currentModelName]
+
+    if (modelMaxTokens === undefined) {
+      return Number.MAX_SAFE_INTEGER
+    }
+    return modelMaxTokens - store.contextToken - store.inputContentToken
+  })
 
   const currentModel = createMemo(() => {
-    const model = store.sessionSettings.model
+    const modelName = store.sessionSettings.model
     const tk = (store.inputContentToken + store.contextToken) / 1000
-    if (model === "gpt-3.5") {
+    if (modelName === "gpt-3.5") {
       return models["gpt-3.5"][tk < 3.5 ? "4k" : "16k"]
-    } else {
+    } else if (modelName === "gpt-4") {
       return models["gpt-4"][tk < 7 ? "8k" : "32k"]
+    } else {
+      return modelName as Model // Treat as custom model
     }
   })
 
@@ -293,5 +307,8 @@ function countTokensDollar(
   io: "input" | "output"
 ) {
   const tk = tokens / 1000
-  return modelFee[model][io] * tk
+  if (modelFee[model]) {
+    return modelFee[model][io] * tk
+  }
+  return 0 // Or handle as an error, though returning 0 means no cost for custom models
 }

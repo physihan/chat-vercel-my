@@ -8,7 +8,9 @@ export const defaultEnv = {
   CLIENT_GLOBAL_SETTINGS: {
     APIKey: "",
     password: "",
-    enterToSend: true
+    enterToSend: true,
+    customProviderApiBaseUrl: "",
+    customProviderApiKey: ""
   },
   CLIENT_SESSION_SETTINGS: {
     title: "",
@@ -35,7 +37,9 @@ export const defaultEnv = {
   PASSWORD: "",
   SEND_KEY: "",
   SEND_CHANNEL: 9,
-  NO_GFW: false
+  NO_GFW: false,
+  CUSTOM_PROVIDER_API_BASE_URL: "",
+  CUSTOM_PROVIDER_API_KEY: ""
 }
 
 export type SessionSettings = typeof defaultEnv.CLIENT_SESSION_SETTINGS
